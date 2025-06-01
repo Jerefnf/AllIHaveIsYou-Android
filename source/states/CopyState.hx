@@ -40,10 +40,7 @@ import flixel.util.FlxTimer;
 import flixel.FlxCamera;
 
 /**
- * CopyState
- *
- * Esta pantalla se encarga de mover mods desde los assets hasta la carpeta de mods, mientras te bombardea con comentarios acelerados sobre el mod actual y el archivo en cuestión. 
- * Si ves esto, probablemente tenías ganas de ver barras de progreso y chistes innecesarios.
+ * CopyState mejorado: ahora copia todo (sobreescribe archivos) y los textos se ven ordenados.
  */
 class CopyState extends MusicBeatState
 {
@@ -57,11 +54,12 @@ class CopyState extends MusicBeatState
 	public var loadingBar:FlxBar;
 	public var loadedText:FlxText;
 	public var logText:FlxText;
+	public var extraText:FlxText;
 	public var headline:FlxText;
-	public var thread:ThreadPool;
 	public var tipText:FlxText;
 	public var bg:FlxSprite;
 	public var cam:FlxCamera;
+	public var thread:ThreadPool;
 
 	var failedFilesStack:Array<String> = [];
 	var failedFiles:Array<String> = [];
@@ -97,29 +95,58 @@ class CopyState extends MusicBeatState
 			{ type: FlxTween.PINGPONG }
 		);
 
-		locatedFiles = [];
-		maxLoopTimes = 0;
-		checkExistingFiles();
-		if (maxLoopTimes <= 0)
-		{
-			MusicBeatState.switchState(new TitleState());
-			return;
-		}
-
-		headline = new FlxText(0, 32, FlxG.width, "¡Agregando los mods al juego!", 27);
+		// Headline arriba
+		headline = new FlxText(0, 30, FlxG.width, "¡Agregando los mods al juego!", 27);
 		headline.setFormat(Paths.font("vcr.ttf"), 27, FlxColor.CYAN, CENTER);
 		add(headline);
-		FlxTween.tween(headline, {y: 26}, 1, {type: FlxTween.PINGPONG, ease: flixel.tweens.FlxEase.quadInOut});
+		FlxTween.tween(headline, {y: 30 + 8}, 1, {type: FlxTween.PINGPONG, ease: flixel.tweens.FlxEase.quadInOut});
 
-		tipText = new FlxText(0, FlxG.height - 60, FlxG.width, tips[Std.random(tips.length)], 15);
-		tipText.setFormat(Paths.font("vcr.ttf"), 15, FlxColor.LIME, CENTER);
+		// Imagen loading centrada, puede ser tu meme/logo
+		loadingImage = new FlxSprite();
+		loadingImage.loadGraphic(Paths.image('funkay'));
+		loadingImage.setGraphicSize(0, Std.int(FlxG.height * 0.25));
+		loadingImage.updateHitbox();
+		loadingImage.screenCenter(X);
+		loadingImage.y = Std.int(FlxG.height * 0.20);
+		loadingImage.alpha = 0.32;
+		add(loadingImage);
+
+		// Texto grande tipo meme/logo
+		var logoText = new FlxText(0, loadingImage.y + loadingImage.height + 10, FlxG.width, "PSYCH ENGINE\nSUPREMACY", 48);
+		logoText.setFormat(Paths.font("vcr.ttf"), 48, FlxColor.fromRGB(40, 40, 40), CENTER);
+		add(logoText);
+
+		// Loading...
+		var loadingBig = new FlxText(0, logoText.y + logoText.height + 10, FlxG.width, "LOADING...", 48);
+		loadingBig.setFormat(Paths.font("vcr.ttf"), 48, FlxColor.BLACK, CENTER);
+		add(loadingBig);
+
+		// Texto principal de progreso (abajo de la barra)
+		loadedText = new FlxText(0, FlxG.height - 32, FlxG.width, '', 18);
+		loadedText.setFormat(Paths.font("vcr.ttf"), 18, FlxColor.WHITE, CENTER);
+		add(loadedText);
+
+		// Barra de progreso (bien abajo)
+		loadingBar = new FlxBar(0, FlxG.height - 20, FlxBarFillDirection.LEFT_TO_RIGHT, FlxG.width, 10);
+		loadingBar.setRange(0, 1); // se setea luego
+		loadingBar.createFilledBar(FlxColor.BLACK, FlxColor.YELLOW);
+		add(loadingBar);
+
+		// LogText (mensaje largo, justo arriba de loadedText)
+		logText = new FlxText(0, loadedText.y - 46, FlxG.width, '', 16);
+		logText.setFormat(Paths.font("vcr.ttf"), 16, FlxColor.YELLOW, CENTER);
+		add(logText);
+
+		// TipText (el tip, justo encima de logText)
+		tipText = new FlxText(0, logText.y - 25, FlxG.width, tips[Std.random(tips.length)], 14);
+		tipText.setFormat(Paths.font("vcr.ttf"), 14, FlxColor.LIME, CENTER);
 		add(tipText);
 		new FlxTimer().start(3.5, (timer) -> {
 			tipText.text = tips[Std.random(tips.length)];
 		}, 0);
 
 		#if android
-		createAllFoldersForAllMods();
+		copyAllModsFromAssets(); // Nuevo método, ver abajo
 		#end
 
 		CoolUtil.showPopUp(
@@ -127,27 +154,12 @@ class CopyState extends MusicBeatState
 			"Agregando mods"
 		);
 
-		shouldCopy = true;
-
-		loadingImage = new FlxSprite(0, 0, Paths.image('funkay'));
-		loadingImage.setGraphicSize(0, FlxG.height);
-		loadingImage.updateHitbox();
-		loadingImage.screenCenter();
-		loadingImage.alpha = 0.32;
-		add(loadingImage);
-
-		loadingBar = new FlxBar(0, FlxG.height - 26, FlxBarFillDirection.LEFT_TO_RIGHT, FlxG.width, 26);
+		// Iniciar lógica de barra y mensajes
+		locatedFiles = [];
+		maxLoopTimes = 0;
+		checkExistingFiles();
 		loadingBar.setRange(0, maxLoopTimes);
-		loadingBar.createFilledBar(FlxColor.BLACK, FlxColor.YELLOW);
-		add(loadingBar);
-
-		loadedText = new FlxText(loadingBar.x, loadingBar.y + 4, FlxG.width, '', 17);
-		loadedText.setFormat(Paths.font("vcr.ttf"), 17, FlxColor.WHITE, CENTER);
-		add(loadedText);
-
-		logText = new FlxText(0, loadingBar.y - 55, FlxG.width, '', 15);
-		logText.setFormat(Paths.font("vcr.ttf"), 15, FlxColor.YELLOW, CENTER);
-		add(logText);
+		shouldCopy = true;
 
 		thread = new ThreadPool(0, CoolUtil.getCPUThreadsCount());
 		thread.doWork.add(function(poop)
@@ -202,6 +214,45 @@ class CopyState extends MusicBeatState
 			loadingBar.percent = Math.min((loopTimes / maxLoopTimes) * 100, 100);
 		}
 		super.update(elapsed);
+	}
+
+	// Sobreescribe archivos SIEMPRE y copia todo, no solo carpetas:
+	public function copyAllModsFromAssets() {
+		var allAssets = OpenFLAssets.list();
+		var modPrefixes = new Map<String, Bool>();
+		// Encuentra todos los mods
+		for (asset in allAssets) {
+			if (asset.startsWith("mods/")) {
+				var slashIdx = asset.indexOf("/", 5);
+				if (slashIdx != -1) {
+					var modName = asset.substr(0, slashIdx + 1);
+					modPrefixes.set(modName, true);
+				}
+			}
+		}
+		// Para cada mod, copia todos los archivos y carpetas internas
+		for (modPrefix in modPrefixes.keys()) {
+			var modAssets = allAssets.filter(a -> a.startsWith(modPrefix));
+			for (asset in modAssets) {
+				if (asset.endsWith("/")) {
+					// Es una carpeta
+					var targetDir = StorageUtil.getExternalStorageDirectory() + asset;
+					if (!FileSystem.exists(targetDir)) {
+						FileSystem.createDirectory(targetDir);
+					}
+				} else {
+					// Es un archivo: SIEMPRE sobrescribe
+					var targetFile = StorageUtil.getExternalStorageDirectory() + asset;
+					var dir = Path.directory(targetFile);
+					if (!FileSystem.exists(dir)) FileSystem.createDirectory(dir);
+					if (textFilesExtensions.contains(Path.extension(asset))) {
+						File.saveContent(targetFile, OpenFLAssets.getText(asset));
+					} else {
+						File.saveBytes(targetFile, OpenFLAssets.getBytes(asset));
+					}
+				}
+			}
+		}
 	}
 
 	// Saca el nombre del mod de una ruta estilo mods/loquesea/archivo...
