@@ -174,9 +174,9 @@ class CopyState extends MusicBeatState
 				"Todos los mods ya están copiados o no hay nada para copiar.\nPuedes revisar en el menú de mods.",
 				"Sin archivos nuevos"
 			);
-			FlxTimer.globalManager.add(new FlxTimer().start(1.5, (_) -> {
-				MusicBeatState.switchState(new TitleState());
-			}));
+			new FlxTimer().start(1.5, (_) -> {
+			    MusicBeatState.switchState(new TitleState());
+		        });
 			return;
 		}
 
