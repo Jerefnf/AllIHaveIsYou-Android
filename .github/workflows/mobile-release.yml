@@ -1,5 +1,21 @@
-name: Mobile + Release
-on: workflow_dispatch
+name: Mobile Build & Release (Smart)
+
+on:
+  workflow_dispatch:
+    inputs:
+      build_mode:
+        description: 'Modo de compilación (release/debug)'
+        required: false
+        default: 'release'
+        type: choice
+        options:
+          - release
+          - debug
+      extra_defines:
+        description: 'Defines adicionales (separados por espacio, ej: FLX_NO_DEBUG IRIS_DEBUG)'
+        required: false
+        default: ''
+        type: string
 
 permissions:
   contents: write
@@ -34,69 +50,43 @@ jobs:
           echo "::set-output name=COMMIT_HASH::$commit_hash"
 
   build:
-    name: ${{ matrix.name }}
+    name: Android
     needs: get-commit-hash
-    strategy:
-      matrix:
-        include:
-          - name: Android Release
-            os: macos-15
-            buildArgs: "android -final -D officialBuild"
-            setupCommand: sh ./setup/unix.sh
-            artifactName: androidReleaseBuild
-            artifactPath: "export/release/android/bin/app/build/outputs/apk/release/*.apk"
-          - name: Android Debug
-            os: macos-15
-            buildArgs: "android -debug"
-            setupCommand: sh ./setup/unix.sh
-            artifactName: androidDebugBuild
-            artifactPath: "export/debug/android/bin/app/build/outputs/apk/debug/*.apk"
     uses: ./.github/workflows/build.yml
     with:
-        name: ${{ matrix.name }}
-        os: ${{ matrix.os }}
-        setupCommand: ${{ matrix.setupCommand }}
-        buildArgs: ${{ matrix.buildArgs }}
-        artifactName: ${{ matrix.artifactName }}
-        artifactPath: ${{ matrix.artifactPath }}
+      name: Android
+      os: macos-15
+      setupCommand: sh ./setup/unix.sh
+      buildArgs: ${{ (inputs.build_mode == 'debug' && 'android -debug') || 'android -final -D officialBuild' }}${{ inputs.extra_defines && format(' -D {0}', join(inputs.extra_defines, ' -D ')) || '' }}
+      artifactName: androidBuild
+      artifactPath: ${{ (inputs.build_mode == 'debug' && 'export/debug/android/bin/app/build/outputs/apk/debug/*.apk') || 'export/release/android/bin/app/build/outputs/apk/release/*.apk' }}
 
   Releaser:
     needs: [get-commit-hash, build]
     runs-on: ubuntu-latest
     permissions: write-all
     steps:
-      - name: Download Android Release Build
+      - name: Download Android Build
         uses: actions/download-artifact@main
         with:
-           name: androidReleaseBuild
-           path: /home/runner/androidReleaseBuild
-
-      - name: Download Android Debug Build
-        uses: actions/download-artifact@main
-        with:
-           name: androidDebugBuild
-           path: /home/runner/androidDebugBuild
+          name: androidBuild
+          path: /home/runner/androidBuild
 
       - name: List APK files
-        run: |
-          ls -lhR /home/runner/androidReleaseBuild
-          ls -lhR /home/runner/androidDebugBuild
+        run: ls -lhR /home/runner/androidBuild
 
-      - name: Move APK Files
+      - name: Move Android File
         run: |
-          RELEASE_APK=$(find /home/runner/androidReleaseBuild -type f -name "*.apk" | head -n 1)
-          DEBUG_APK=$(find /home/runner/androidDebugBuild -type f -name "*.apk" | head -n 1)
-          if [ -z "$RELEASE_APK" ] && [ -z "$DEBUG_APK" ]; then
-            echo "No APKs found!"
+          APK=$(find /home/runner/androidBuild -type f -name "*.apk" | head -n 1)
+          if [ -z "$APK" ]; then
+            echo "No APK found!"
             exit 1
           fi
-          if [ -n "$RELEASE_APK" ]; then
-            echo "Found Release APK at: $RELEASE_APK"
-            mv "$RELEASE_APK" /home/runner/${{ env.PROJECT_NAME }}-Android-Release.apk
-          fi
-          if [ -n "$DEBUG_APK" ]; then
-            echo "Found Debug APK at: $DEBUG_APK"
-            mv "$DEBUG_APK" /home/runner/${{ env.PROJECT_NAME }}-Android-Debug.apk
+          echo "Found APK at: $APK"
+          if [[ "${{ github.event.inputs.build_mode }}" == "debug" ]]; then
+            mv "$APK" /home/runner/${{ env.PROJECT_NAME }}-Android-Debug.apk
+          else
+            mv "$APK" /home/runner/${{ env.PROJECT_NAME }}-Android-Release.apk
           fi
 
       - name: Publish The Release
