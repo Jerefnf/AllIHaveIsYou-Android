@@ -136,6 +136,16 @@ class CopyState extends MusicBeatState
 		super.update(elapsed);
 	}
 
+	// NUEVA FUNCIÓN: asegúrate de que la ruta existe antes de guardar archivos o texto
+	public function ensurePathExists(path:String) {
+		var parts = path.split("/");
+		var build = "";
+		for (i in 0...parts.length-1) { // Excluye el archivo mismo
+			build += parts[i] + "/";
+			if (!FileSystem.exists(build)) FileSystem.createDirectory(build);
+		}
+	}
+
 	public function copyAsset(file:String)
 	{
 		if (!FileSystem.exists(file))
@@ -158,6 +168,7 @@ class CopyState extends MusicBeatState
 						else
 						#end
 							path = file;
+						ensurePathExists(path); // <--- Llama antes de guardar bytes
 						File.saveBytes(path, getFileBytes(getFile(file)));
 					}		
 				}
@@ -188,9 +199,9 @@ class CopyState extends MusicBeatState
 			var fileData:String = OpenFLAssets.getText(getFile(file));
 			if (fileData == null)
 				fileData = '';
-			if (!FileSystem.exists(directory))
-				FileSystem.createDirectory(directory);
-			File.saveContent(Path.join([directory, fileName]), fileData);
+			var fullPath = Path.join([directory, fileName]);
+			ensurePathExists(fullPath); // <--- Llama antes de guardar texto
+			File.saveContent(fullPath, fileData);
 		}
 		catch (e:haxe.Exception)
 		{
