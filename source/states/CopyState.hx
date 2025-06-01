@@ -54,7 +54,6 @@ class CopyState extends MusicBeatState
 	public var loadingBar:FlxBar;
 	public var loadedText:FlxText;
 	public var logText:FlxText;
-	public var extraText:FlxText;
 	public var headline:FlxText;
 	public var tipText:FlxText;
 	public var bg:FlxSprite;
@@ -99,7 +98,7 @@ class CopyState extends MusicBeatState
 		headline = new FlxText(0, 30, FlxG.width, "¡Agregando los mods al juego!", 27);
 		headline.setFormat(Paths.font("vcr.ttf"), 27, FlxColor.CYAN, CENTER);
 		add(headline);
-		FlxTween.tween(headline, {y: 30 + 8}, 1, {type: FlxTween.PINGPONG, ease: flixel.tweens.FlxEase.quadInOut});
+		FlxTween.tween(headline, {y: 38}, 1, {type: FlxTween.PINGPONG, ease: flixel.tweens.FlxEase.quadInOut});
 
 		// Imagen loading centrada, puede ser tu meme/logo
 		loadingImage = new FlxSprite();
@@ -121,45 +120,65 @@ class CopyState extends MusicBeatState
 		loadingBig.setFormat(Paths.font("vcr.ttf"), 48, FlxColor.BLACK, CENTER);
 		add(loadingBig);
 
+		// Barra de progreso (bien abajo)
+		loadingBar = new FlxBar(0, FlxG.height - 20, FlxBarFillDirection.LEFT_TO_RIGHT, FlxG.width, 10);
+		loadingBar.createFilledBar(FlxColor.BLACK, FlxColor.YELLOW);
+		loadingBar.visible = false; // la mostramos solo si hay archivos
+		add(loadingBar);
+
 		// Texto principal de progreso (abajo de la barra)
 		loadedText = new FlxText(0, FlxG.height - 32, FlxG.width, '', 18);
 		loadedText.setFormat(Paths.font("vcr.ttf"), 18, FlxColor.WHITE, CENTER);
+		loadedText.visible = false;
 		add(loadedText);
 
-		// Barra de progreso (bien abajo)
-		loadingBar = new FlxBar(0, FlxG.height - 20, FlxBarFillDirection.LEFT_TO_RIGHT, FlxG.width, 10);
-		loadingBar.setRange(0, 1); // se setea luego
-		loadingBar.createFilledBar(FlxColor.BLACK, FlxColor.YELLOW);
-		add(loadingBar);
-
 		// LogText (mensaje largo, justo arriba de loadedText)
-		logText = new FlxText(0, loadedText.y - 46, FlxG.width, '', 16);
+		logText = new FlxText(0, loadedText.y - 36, FlxG.width, '', 16);
 		logText.setFormat(Paths.font("vcr.ttf"), 16, FlxColor.YELLOW, CENTER);
+		logText.visible = false;
 		add(logText);
 
 		// TipText (el tip, justo encima de logText)
-		tipText = new FlxText(0, logText.y - 25, FlxG.width, tips[Std.random(tips.length)], 14);
+		tipText = new FlxText(0, logText.y - 24, FlxG.width, tips[Std.random(tips.length)], 14);
 		tipText.setFormat(Paths.font("vcr.ttf"), 14, FlxColor.LIME, CENTER);
+		tipText.visible = false;
 		add(tipText);
+
 		new FlxTimer().start(3.5, (timer) -> {
 			tipText.text = tips[Std.random(tips.length)];
 		}, 0);
 
 		#if android
-		copyAllModsFromAssets(); // Nuevo método, ver abajo
+		copyAllModsFromAssets(); // copia todo y sobrescribe archivos
 		#end
 
-		CoolUtil.showPopUp(
-			"Los mods están a punto de mudarse a la carpeta necesaria para que el juego los reconozca. ¿Preparado para ver nombres impronunciables y rutas larguísimas? Yo tampoco.",
-			"Agregando mods"
-		);
-
-		// Iniciar lógica de barra y mensajes
+		// calcula archivos a copiar y muestra barra solo si hay
 		locatedFiles = [];
 		maxLoopTimes = 0;
 		checkExistingFiles();
-		loadingBar.setRange(0, maxLoopTimes);
-		shouldCopy = true;
+
+		if (maxLoopTimes > 0) {
+			loadingBar.setRange(0, maxLoopTimes);
+			loadingBar.visible = true;
+			loadedText.visible = true;
+			logText.visible = true;
+			tipText.visible = true;
+			shouldCopy = true;
+		} else {
+			loadingBar.setRange(0, 1);
+			loadingBar.visible = false;
+			loadedText.visible = false;
+			logText.visible = false;
+			tipText.visible = false;
+			CoolUtil.showPopUp(
+				"Todos los mods ya están copiados o no hay nada para copiar.\nPuedes revisar en el menú de mods.",
+				"Sin archivos nuevos"
+			);
+			FlxTimer.globalManager.add(new FlxTimer().start(1.5, (_) -> {
+				MusicBeatState.switchState(new TitleState());
+			}));
+			return;
+		}
 
 		thread = new ThreadPool(0, CoolUtil.getCPUThreadsCount());
 		thread.doWork.add(function(poop)
@@ -176,6 +195,11 @@ class CopyState extends MusicBeatState
 		{
 			thread.queue({});
 		});
+
+		CoolUtil.showPopUp(
+			"Los mods están a punto de mudarse a la carpeta necesaria para que el juego los reconozca.\n¿Preparado para ver nombres impronunciables y rutas larguísimas? Yo tampoco.",
+			"Agregando mods"
+		);
 
 		super.create();
 	}
@@ -255,13 +279,11 @@ class CopyState extends MusicBeatState
 		}
 	}
 
-	// Saca el nombre del mod de una ruta estilo mods/loquesea/archivo...
 	function extractModName(file:String):String
 	{
 		if (file.startsWith("mods/")) {
 			var parts = file.substr(5).split("/");
 			if (parts.length > 0 && parts[0].length > 0) {
-				// Normalización: quita espacios, mayúsculas raras y variantes comunes
 				var n = parts[0].trim().toLowerCase();
 				n = n.replace("mod_", "").replace("pack", "").replace("final", "").replace("_v2", "").replace("_def", "");
 				n = ~/[^a-z0-9]/g.replace(n, ""); // solo letras y números
@@ -274,7 +296,6 @@ class CopyState extends MusicBeatState
 
 	function getExcitedMessage(file:String, modName:String, current:Int, total:Int):String
 	{
-		// Mensaje hiperactivo y con referencias al mod
 		var frases = [
 			"¡Bien! El mod '" + modName + "' está en camino.",
 			"¿Listo para '" + modName + "'? Porque este archivo lo está.",
@@ -306,45 +327,45 @@ class CopyState extends MusicBeatState
 		return main + "\n" + detalle + " (" + current + "/" + total + ")\n" + ext;
 	}
 
-	public function createAllFoldersForAllMods() {
-		var modPrefixes = new Map<String, Bool>();
-		for (asset in OpenFLAssets.list()) {
-			if (asset.startsWith("mods/")) {
-				var slashIdx = asset.indexOf("/", 5);
-				if (slashIdx != -1) {
-					var modName = asset.substr(0, slashIdx + 1);
-					modPrefixes.set(modName, true);
+	public static function checkExistingFiles():Bool
+	{
+		locatedFiles = OpenFLAssets.list();
+
+		var assets = locatedFiles.filter(folder -> folder.startsWith('assets/'));
+		var mods = locatedFiles.filter(folder -> folder.startsWith('mods/'));
+		locatedFiles = assets.concat(mods);
+		locatedFiles = locatedFiles.filter(file -> !FileSystem.exists(file));
+		#if android
+		for (file in locatedFiles)
+			if (file.startsWith('mods/'))
+				locatedFiles = locatedFiles.filter(file -> !FileSystem.exists(StorageUtil.getExternalStorageDirectory() + file));
+		#end
+
+		var filesToRemove:Array<String> = [];
+
+		for (file in locatedFiles)
+		{
+			if (filesToRemove.contains(file))
+				continue;
+
+			if(file.endsWith(IGNORE_FOLDER_FILE_NAME) && !directoriesToIgnore.contains(Path.directory(file)))
+				directoriesToIgnore.push(Path.directory(file));
+
+			if (directoriesToIgnore.length > 0)
+			{
+				for (directory in directoriesToIgnore)
+				{
+					if (file.startsWith(directory))
+						filesToRemove.push(file);
 				}
 			}
 		}
-		for (modPrefix in modPrefixes.keys()) {
-			var targetBase = StorageUtil.getExternalStorageDirectory() + modPrefix;
-			createAllFoldersFromAssets(modPrefix, targetBase);
-		}
-	}
 
-	public function createAllFoldersFromAssets(modPrefix:String, targetBase:String) {
-		for (asset in OpenFLAssets.list()) {
-			if (asset.startsWith(modPrefix)) {
-				var relativePath = asset.substr(modPrefix.length);
-				if (relativePath.indexOf("/") != -1) {
-					var folderPath = relativePath.substr(0, relativePath.lastIndexOf("/"));
-					var fullTarget = Path.join([targetBase, folderPath]);
-					if (!FileSystem.exists(fullTarget)) {
-						FileSystem.createDirectory(fullTarget);
-					}
-				}
-			}
-		}
-	}
+		locatedFiles = locatedFiles.filter(file -> !filesToRemove.contains(file));
 
-	public function ensurePathExists(path:String) {
-		var parts = path.split("/");
-		var build = "";
-		for (i in 0...parts.length-1) {
-			build += parts[i] + "/";
-			if (!FileSystem.exists(build)) FileSystem.createDirectory(build);
-		}
+		maxLoopTimes = locatedFiles.length;
+
+		return (maxLoopTimes <= 0);
 	}
 
 	public function copyAsset(file:String)
@@ -411,6 +432,15 @@ class CopyState extends MusicBeatState
 		}
 	}
 
+	public function ensurePathExists(path:String) {
+		var parts = path.split("/");
+		var build = "";
+		for (i in 0...parts.length-1) {
+			build += parts[i] + "/";
+			if (!FileSystem.exists(build)) FileSystem.createDirectory(build);
+		}
+	}
+
 	public function getFileBytes(file:String):ByteArray
 	{
 		switch (Path.extension(file).toLowerCase())
@@ -435,47 +465,6 @@ class CopyState extends MusicBeatState
 		}
 
 		return file;
-	}
-
-	public static function checkExistingFiles():Bool
-	{
-		locatedFiles = OpenFLAssets.list();
-
-		var assets = locatedFiles.filter(folder -> folder.startsWith('assets/'));
-		var mods = locatedFiles.filter(folder -> folder.startsWith('mods/'));
-		locatedFiles = assets.concat(mods);
-		locatedFiles = locatedFiles.filter(file -> !FileSystem.exists(file));
-		#if android
-		for (file in locatedFiles)
-			if (file.startsWith('mods/'))
-				locatedFiles = locatedFiles.filter(file -> !FileSystem.exists(StorageUtil.getExternalStorageDirectory() + file));
-		#end
-
-		var filesToRemove:Array<String> = [];
-
-		for (file in locatedFiles)
-		{
-			if (filesToRemove.contains(file))
-				continue;
-
-			if(file.endsWith(IGNORE_FOLDER_FILE_NAME) && !directoriesToIgnore.contains(Path.directory(file)))
-				directoriesToIgnore.push(Path.directory(file));
-
-			if (directoriesToIgnore.length > 0)
-			{
-				for (directory in directoriesToIgnore)
-				{
-					if (file.startsWith(directory))
-						filesToRemove.push(file);
-				}
-			}
-		}
-
-		locatedFiles = locatedFiles.filter(file -> !filesToRemove.contains(file));
-
-		maxLoopTimes = locatedFiles.length;
-
-		return (maxLoopTimes <= 0);
 	}
 }
 #end
