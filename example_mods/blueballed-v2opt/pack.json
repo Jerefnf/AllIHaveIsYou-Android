@@ -1,1 +1,7 @@
-{"name":"Name","description":"Description","restart":false,"runsGlobally":false,"color":[170,0,255],"discordRPC":"863222024192262205"}
+{
+  "name": "Blueballed v2 Optimized",
+  "author": "Jerefnf",
+  "description": "Versión optimizada del mod Blueballed v2 para Psych Engine Android.",
+  "icon": "pack.png",
+  "version": "1.0.0"
+}
