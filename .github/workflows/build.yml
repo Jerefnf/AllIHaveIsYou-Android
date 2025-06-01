@@ -40,7 +40,7 @@ jobs:
           haxe-version: ${{ env.HAXE_VERSION }}
 
       - name: Setup Android NDK
-        if: inputs.name == 'Android'
+        if: inputs.name == 'Android' || inputs.name == 'Android Release' || inputs.name == 'Android Debug'
         id: setup-ndk
         uses: nttld/setup-ndk@main
         with:
@@ -55,7 +55,7 @@ jobs:
         run: ${{ inputs.setupCommand }}
 
       - name: Configure Android
-        if: inputs.name == 'Android'
+        if: inputs.name == 'Android' || inputs.name == 'Android Release' || inputs.name == 'Android Debug'
         run: |
           haxelib run lime config ANDROID_SDK $ANDROID_HOME
           haxelib run lime config ANDROID_NDK_ROOT ${{ steps.setup-ndk.outputs.ndk-path }}
