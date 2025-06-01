@@ -3,10 +3,10 @@
 	<!-- _________________________ Application Settings _________________________ -->
 
 	<app 
-		title="Blueballed V2 OPT" 
-		file="BlueballedV2Opt" 
-		packageName="com.jereidk.blueballedv2opt" 
-		package="com.jereidk.blueballedv2opt"
+		title="All I Have Is You" 
+		file="AllIHaveIsYouOpt" 
+		packageName="com.jereidk.allihaveisyouopt" 
+		package="com.jereidk.allihaveisyouopt"
 		main="Main"
 		version="0.2.8" 
 		company="jereidk" 
@@ -30,7 +30,7 @@
 	<define name="ACHIEVEMENTS_ALLOWED" />
 	<define name="DISCORD_ALLOWED" if="desktop" />
 	<define name="TRANSLATIONS_ALLOWED" />
-	<define name="COPYSTATE_ALLOWED" if="MODS_ALLOWED mobile"/>
+	<!-- <define name="COPYSTATE_ALLOWED" if="MODS_ALLOWED mobile"/> -->
 	<define name="IRIS_DEBUG"/>
 
 	<define name="MULTITHREADED_LOADING" if="cpp" />
