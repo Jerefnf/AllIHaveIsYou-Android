@@ -6,8 +6,8 @@ permissions:
   discussions: write
 
 env:
-  PROJECT_NAME: Blueballedv2
-  REPO_PATH: jereidk/Blueballedv2-Android
+  PROJECT_NAME: AllIHaveIsYou
+  REPO_PATH: Jerefnf/AllIHaveIsYou-Android
 
 jobs:
   get-commit-hash:
