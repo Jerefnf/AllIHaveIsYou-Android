@@ -1,4 +1,4 @@
-name: Mobile Build & Release (Smart)
+name: Mobile Build & Release
 
 on:
   workflow_dispatch:
