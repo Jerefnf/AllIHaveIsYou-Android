@@ -109,7 +109,7 @@ class CopyState extends MusicBeatState
 		headline = new FlxText(0, 32, FlxG.width, "¡Agregando los mods al juego!", 27);
 		headline.setFormat(Paths.font("vcr.ttf"), 27, FlxColor.CYAN, CENTER);
 		add(headline);
-		FlxTween.tween(headline, {y: 26}, 1, {type: FlxTween.PINGPONG, ease: flixel.tweens.FlxEase.quadInOut, loopType: flixel.tweens.FlxTween.LOOPING});
+		FlxTween.tween(headline, {y: 26}, 1, {type: FlxTween.PINGPONG, ease: flixel.tweens.FlxEase.quadInOut});
 
 		tipText = new FlxText(0, FlxG.height - 60, FlxG.width, tips[Std.random(tips.length)], 15);
 		tipText.setFormat(Paths.font("vcr.ttf"), 15, FlxColor.LIME, CENTER);
